@@ -1,0 +1,21 @@
+[package]
+name = "rightfm"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+assert_ok = "1.0.2"
+nalgebra = "0.32.5"
+nalgebra-sparse = "0.9.0"
+ndarray = "0.15.6"
+ndarray-rand = "0.14.0"
+ndarray-slice = "0.3.0"
+nshare = "0.9.0"
+polars = "0.38.3"
+rand = "0.8.5"
+rand_isaac = "0.3.0"
+rayon = "1.10.0"
+shuffle = "0.1.7"
+tqdm = "0.7.0"
