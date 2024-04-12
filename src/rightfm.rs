@@ -144,13 +144,12 @@ impl RightFM {
             assert_eq!(self.data.as_ref().unwrap().user_features.nrows(), _user_features.ncols(), "should have same no of user features");
         }
 
-        Self::process(epochs, verbose).for_each(|epoch| {
-            self.run_epoch(&_item_features, &_user_features, interaction, &sample_weight_data, epoch, number_thread, self.loss.clone())
+        Self::process(epochs, verbose).for_each(|_| {
+            self.run_epoch(&_item_features, &_user_features, interaction, &sample_weight_data, number_thread, self.loss.clone())
         });
     }
 
-    fn run_epoch(&mut self, item_features: &CsrMatrix<Flt>, user_features: &CsrMatrix<Flt>, interaction: &CooMatrix<Flt>, sample_weight: &Vec<Flt>, epoch: usize, number_thread: u8, loss: Loss) {
-        println!("Epoch {}: uf shape:{},{} if shape:{},{} interaction shape:{},{}", epoch, user_features.nrows(), user_features.ncols(), item_features.nrows(), item_features.ncols(), interaction.nrows(), interaction.ncols());
+    fn run_epoch(&mut self, item_features: &CsrMatrix<Flt>, user_features: &CsrMatrix<Flt>, interaction: &CooMatrix<Flt>, sample_weight: &Vec<Flt>, number_thread: u8, loss: Loss) {
         let mut shuffled_indices = (0..interaction.nnz()).collect::<Vec<_>>();
         assert_ok!(self.random_state.fy.shuffle(&mut shuffled_indices, &mut self.random_state.thread_rng));
         match loss {
@@ -285,35 +284,5 @@ fn elementwise_multiply(a: &CsrMatrix<Flt>, b: &CsrMatrix<Flt>) -> CsrMatrix<Flt
         }
     });
     CsrMatrix::from(&coo)
-}
-
-#[cfg(test)]
-mod tests {
-    use std::ops::Sub;
-    use nalgebra_sparse::{CooMatrix, CsrMatrix};
-    use ndarray::Array2;
-
-    #[test]
-    fn test_fast_rightfm() {
-        let no_item_features = 10;
-        let no_components = 5;
-        let data = Array2::from_elem((no_item_features, no_components), 0.5f32);
-        println!("{}", data);
-    }
-
-
-    #[test]
-    fn main() {
-        println!("Hello, world!");
-        let o: Option<CsrMatrix<f32>> = Some(CsrMatrix::try_from_csr_data(2, 2, vec![0, 2, 4], vec![0, 1, 0, 1], vec![1., 2., 3., 4.]).unwrap());
-        println!("{:?}", o);
-        let c = o.unwrap();
-
-        println!("{:?}", c);
-    }
-
-    fn change(v: &mut [f32]) {
-        v[0] = 1.;
-    }
 }
 

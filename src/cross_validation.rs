@@ -6,7 +6,7 @@ use shuffle::fy::FisherYates;
 use shuffle::shuffler::Shuffler;
 use crate::rightfm::Flt;
 
-fn random_train_test_split(
+pub fn random_train_test_split(
     interactions: &CooMatrix<Flt>,
     test_percentage: f64,
     random_seed: Option<u64>,

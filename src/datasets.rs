@@ -34,7 +34,7 @@ pub fn fetch_movielens(
     extract_zip(&data_home, "/movielens.zip").unwrap();
     let data_type = vec![DataType::UInt32, DataType::UInt32, DataType::Float32];
     let data_home = data_home + "/movielens";
-    let (train, test, num_users, num_items) = parse_to_interaction(&(data_home.clone() + "/ml-100k/ua.base"), &(data_home.clone() + "/ml-100k/ua.test"), &data_type, min_rating);
+    let (train, test, _, num_items) = parse_to_interaction(&(data_home.clone() + "/ml-100k/ua.base"), &(data_home.clone() + "/ml-100k/ua.test"), &data_type, min_rating);
     MovieLensData {
         train,
         test,

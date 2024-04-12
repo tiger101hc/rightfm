@@ -137,17 +137,17 @@ pub(crate) fn fit_warp(
     item_alpha: Flt,
     user_alpha: Flt,
     random_state: &mut RandomState) {
-    let no_examples = values.len();
+    let no_examples = interactions.nnz();
     let mut user_repr = vec![0.0; rightfm.no_components + 1];
     let mut pos_it_repr = vec![0.0; rightfm.no_components + 1];
     let mut neg_it_repr = vec![0.0; rightfm.no_components + 1];
 
     (0..no_examples).for_each(|i| {
-        let row = shuffle_indices[i];
-        if values[row] > 0.0 {
-            let user_id = user_ids[row];
-            let positive_item_id = item_ids[row];
-            let weight = sample_weight[row];
+        let idx = shuffle_indices[i];
+        if values[idx] > 0.0 {
+            let user_id = user_ids[idx];
+            let positive_item_id = item_ids[idx];
+            let weight = sample_weight[idx];
             let pos_item_feature = item_features.get_row(positive_item_id).unwrap();
             let user_feature = user_features.get_row(user_id).unwrap();
 
@@ -157,18 +157,17 @@ pub(crate) fn fit_warp(
 
             for i in 0..rightfm.max_sampled
             {
-                let negative_item_id = random_state.thread_rng.gen_range(0..item_features.nrows()) as usize;
+                let negative_item_id = random_state.thread_rng.gen_range(0..item_features.nrows());
                 let neg_item_feature = item_features.get_row(negative_item_id).unwrap();
                 compute_representation(&neg_item_feature, &rightfm.item_features, &rightfm.item_biases, rightfm, rightfm.item_scale, &mut neg_it_repr);
                 let neg_prediction = compute_prediction_from_repr(&user_repr, &neg_it_repr, rightfm.no_components);
 
-                if (neg_prediction - pos_prediction) > 1. {
+                if neg_prediction + 1. > pos_prediction {
                     if interactions.get_row(user_id).unwrap().col_indices().binary_search(&negative_item_id).is_err() {
-                        let mut _i = ((no_examples as Flt - 1.) / ((i + 1) as Flt)).floor();
-                        _i = if _i < 1.0 { 1.0 } else { _i };
-                        let mut loss = weight * _i.ln();
-                        loss = if loss > MAX_LOSS { MAX_LOSS } else { loss };
+                        let loss =weight*((item_features.nrows() as Flt - 1.) / ((i + 1) as Flt)).floor().max(1.).ln();
+                        let loss = if loss > MAX_LOSS { MAX_LOSS } else { loss };
                         warp_update(loss, &pos_item_feature, &neg_item_feature, &user_feature, &user_repr, &pos_it_repr, &neg_it_repr, rightfm, item_alpha, user_alpha);
+                        break;
                     }
                 }
             }
@@ -192,17 +191,17 @@ pub(crate) fn fit_bpr(
     item_alpha: Flt,
     user_alpha: Flt,
     random_state: &mut RandomState) {
-    let no_examples = values.len();
+    let no_examples = interactions.nnz();
     let mut user_repr = vec![0.0; rightfm.no_components + 1];
     let mut pos_it_repr = vec![0.0; rightfm.no_components + 1];
     let mut neg_it_repr = vec![0.0; rightfm.no_components + 1];
 
     (0..no_examples).for_each(|i| {
-        let row = shuffle_indices[i];
-        if values[row] > 0.0 {
-            let weight = sample_weight[row];
-            let user_id = user_ids[row];
-            let pos_item_id = item_ids[row];
+        let idx = shuffle_indices[i];
+        if values[idx] > 0.0 {
+            let weight = sample_weight[idx];
+            let user_id = user_ids[idx];
+            let pos_item_id = item_ids[idx];
             let mut idx = 0;
             let neg_item_id = loop {
                 idx += 1;
@@ -214,8 +213,8 @@ pub(crate) fn fit_bpr(
             let neg_item_feature = item_features.get_row(neg_item_id).unwrap();
             let pos_item_feature = item_features.get_row(pos_item_id).unwrap();
             let user_feature = user_features.get_row(user_id).unwrap();
-            compute_representation(&pos_item_feature, &rightfm.item_features, &rightfm.item_biases, rightfm, rightfm.item_scale, &mut pos_it_repr);
             compute_representation(&user_feature, &rightfm.user_features, &rightfm.user_biases, rightfm, rightfm.user_scale, &mut user_repr);
+            compute_representation(&pos_item_feature, &rightfm.item_features, &rightfm.item_biases, rightfm, rightfm.item_scale, &mut pos_it_repr);
             compute_representation(&neg_item_feature, &rightfm.item_features, &rightfm.item_biases, rightfm, rightfm.item_scale, &mut neg_it_repr);
             let pos_prediction = compute_prediction_from_repr(&user_repr, &pos_it_repr, rightfm.no_components);
             let neg_prediction = compute_prediction_from_repr(&user_repr, &neg_it_repr, rightfm.no_components);
@@ -245,35 +244,35 @@ pub(crate) fn fit_warp_kos(
     let mut neg_it_repr = vec![0.0; rightfm.no_components + 1];
     let mut pos_pairs = Vec::with_capacity(n);
 
-    for (i, &row) in shuffle_indices.iter().enumerate() {
+    for (_, &row) in shuffle_indices.iter().enumerate() {
         let user_id = user_ids[row];
         let user_feature = user_features.get_row(user_id).unwrap();
         compute_representation(&user_feature, &rightfm.user_features, &rightfm.user_biases, rightfm, rightfm.user_scale, &mut user_repr);
 
         let interaction = interactions.get_row(user_id).unwrap();
         if interaction.nnz() > 0 {
-            let no_positives = if interaction.nnz() > n { n } else { interaction.nnz() };
-            (0..no_positives).for_each(|i| {
+            let no_positives = interaction.nnz().min(n);
+            (0..no_positives).for_each(|_i| {
                 let sampled_positive_item_id = random_state.thread_rng.gen_range(0..no_positives);
                 let item_feature = item_features.get_row(sampled_positive_item_id).unwrap();
                 compute_representation(&item_feature, &rightfm.item_features, &rightfm.item_biases, &rightfm, rightfm.item_scale, &mut pos_it_repr);
                 let sampled_positive_prediction = compute_prediction_from_repr(&user_repr, &pos_it_repr, rightfm.no_components);
                 pos_pairs.push((sampled_positive_item_id, sampled_positive_prediction));
             });
+            pos_pairs.truncate(no_positives);
             pos_pairs.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
             let (pos_item_id, pos_prediction) = pos_pairs[cmp::min(k, no_positives) - 1];
             let pos_item_feature = item_features.get_row(pos_item_id).unwrap();
             compute_representation(&pos_item_feature, &rightfm.item_features, &rightfm.item_biases, &rightfm, rightfm.item_scale, &mut pos_it_repr);
             for i in 0..rightfm.max_sampled {
-                let neg_item_id = random_state.thread_rng.gen_range(0..item_features.nrows()) as usize;
+                let neg_item_id = random_state.thread_rng.gen_range(0..item_features.nrows());
                 let neg_item_feature = item_features.get_row(neg_item_id).unwrap();
                 compute_representation(&neg_item_feature, &rightfm.item_features, &rightfm.item_biases, rightfm, rightfm.item_scale, &mut neg_it_repr);
                 let neg_prediction = compute_prediction_from_repr(&user_repr, &neg_it_repr, rightfm.no_components);
-                if (neg_prediction - pos_prediction) > 1. {
+                if (neg_prediction + 1.) > pos_prediction {
                     if interactions.get_row(user_id).unwrap().col_indices().binary_search(&neg_item_id).is_err() {
-                        let mut loss = Flt::ln(cmp::max(1, item_features.nrows() - 1) as Flt / ((i + 1) as Flt));
-                        loss = if loss > MAX_LOSS { MAX_LOSS } else { loss };
+                        let loss = (((item_features.nrows()-1)/(i+1)) as Flt).floor().ln().min(MAX_LOSS);
                         warp_update(loss, &pos_item_feature, &neg_item_feature, &user_feature, &user_repr, &pos_it_repr, &neg_it_repr, rightfm, item_alpha, user_alpha);
                         break;
                     }
@@ -387,7 +386,7 @@ pub(crate) fn calculate_auc_from_rank(
                 auc[i] += 1. - rank / num_negatives as Flt;
             }
 
-            if num_positives > 0 {
+            if num_positives != 0 {
                 auc[i] /= num_positives as Flt;
             }
         }
@@ -528,9 +527,7 @@ fn update(loss: Flt,
                                              rightfm.eps as Flt);
     }
 
-    avg_learning_rate /= ((no_components + 1)
-        * (user_features.nnz() + item_features.nnz())
-    ) as Flt;
+    avg_learning_rate /= ((no_components + 1) * (user_features.nnz() + item_features.nnz())) as Flt;
 
     // Update the scaling factors for lazy regularization.
     rightfm.item_scale *= 1.0 + item_alpha * avg_learning_rate;
@@ -638,9 +635,9 @@ fn warp_update(
         );
     }
 
-    avg_learning_rate /= ((rightfm.no_components + 1) * user_features.nnz()
-        + (rightfm.no_components + 1) * pos_item_features.nnz()
-        + (rightfm.no_components + 1) * neg_item_features.nnz()) as Flt;
+    avg_learning_rate /= ((rightfm.no_components + 1) *
+        (user_features.nnz() + pos_item_features.nnz() + neg_item_features.nnz())
+    ) as Flt;
 
     rightfm.item_scale *= 1.0 + item_alpha * avg_learning_rate;
     rightfm.user_scale *= 1.0 + user_alpha * avg_learning_rate;
