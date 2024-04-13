@@ -29,3 +29,8 @@ fn main() {
                                       true, 1, true);
     println!("AUC train:{},test:{}", Array1::from_vec(train_auc).mean().unwrap(), Array1::from_vec(test_auc).mean().unwrap());
 }
+
+#[cfg(test)]
+mod tests {
+
+}

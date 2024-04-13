@@ -273,13 +273,22 @@ fn elementwise_multiply(a: &CsrMatrix<Flt>, b: &CsrMatrix<Flt>) -> CsrMatrix<Flt
     let mut coo = CooMatrix::new(a.nrows(), a.ncols());
     a.row_iter().zip(b.row_iter()).enumerate().for_each(|(idx, (ar, br))| {
         if ar.nnz() > 0 && br.nnz() > 0 {
-            let ab = BTreeSet::from_iter(ar.col_indices().to_vec());
-            let bb = BTreeSet::from_iter(br.col_indices().to_vec());
-            let intersection = ab.intersection(&bb).collect::<Vec<_>>();
-            if intersection.len() > 0 {
-                intersection.iter().for_each(|&&i| {
-                    coo.push(idx, i, ar.values()[i] * br.values()[i]);
-                });
+            // let ab = BTreeSet::from_iter(ar.col_indices().to_vec());
+            // let bb = BTreeSet::from_iter(br.col_indices().to_vec());
+            // let intersection = ab.intersection(&bb).collect::<Vec<_>>();
+            // if intersection.len() > 0 {
+            //     intersection.iter().for_each(|&&i| {
+            //         coo.push(idx, i, ar.values()[i] * br.values()[i]);
+            //     });
+            // }
+
+            for (i,v) in br.col_indices().iter().enumerate() {
+                match ar.col_indices().binary_search(v) {
+                    Ok(iii) => {
+                        coo.push(idx, *v, ar.values()[iii] * br.values()[i]);
+                    }
+                    Err(_) => {}
+                }
             }
         }
     });
