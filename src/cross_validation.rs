@@ -1,10 +1,10 @@
+use crate::rightfm::Flt;
 use assert_ok::assert_ok;
-use nalgebra_sparse::{CooMatrix};
+use nalgebra_sparse::CooMatrix;
 use ndarray_rand::rand::SeedableRng;
 use rand::prelude::StdRng;
 use shuffle::fy::FisherYates;
 use shuffle::shuffler::Shuffler;
-use crate::rightfm::Flt;
 
 pub fn random_train_test_split(
     interactions: &CooMatrix<Flt>,
@@ -16,7 +16,11 @@ pub fn random_train_test_split(
         None => StdRng::from_entropy(),
     };
 
-    let (uids, iids, data) = (interactions.row_indices(), interactions.col_indices(), interactions.values());
+    let (uids, iids, data) = (
+        interactions.row_indices(),
+        interactions.col_indices(),
+        interactions.values(),
+    );
 
     let mut shuffled_indices = (0..interactions.nnz()).collect::<Vec<_>>();
     assert_ok!(FisherYates::default().shuffle(&mut shuffled_indices, &mut rng));
@@ -32,12 +36,22 @@ pub fn random_train_test_split(
 
     (
         CooMatrix::try_from_triplets(
-            interactions.nrows(), interactions.ncols(),
-            _uids[..cutoff].to_vec(), _iids[..cutoff].to_vec(), _data[..cutoff].to_vec(),
-        ).ok().unwrap(),
+            interactions.nrows(),
+            interactions.ncols(),
+            _uids[..cutoff].to_vec(),
+            _iids[..cutoff].to_vec(),
+            _data[..cutoff].to_vec(),
+        )
+        .ok()
+        .unwrap(),
         CooMatrix::try_from_triplets(
-            interactions.nrows(), interactions.ncols(),
-            _uids[cutoff..].to_vec(), _iids[cutoff..].to_vec(), _data[cutoff..].to_vec(),
-        ).ok().unwrap()
+            interactions.nrows(),
+            interactions.ncols(),
+            _uids[cutoff..].to_vec(),
+            _iids[cutoff..].to_vec(),
+            _data[cutoff..].to_vec(),
+        )
+        .ok()
+        .unwrap(),
     )
 }
